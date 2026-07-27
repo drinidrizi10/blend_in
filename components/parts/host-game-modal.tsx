@@ -27,12 +27,14 @@ import {
 import { Switch } from '../ui/switch';
 import { ButtonGroup } from '../ui/button-group';
 import { MinusIcon, PlusIcon } from 'lucide-react';
+import { useState } from 'react';
 
 export default function HostGameModal({
 	hostRoom,
 }: {
 	hostRoom: (data: HostFormValues) => void;
 }) {
+	const [isLoading, setIsLoading] = useState(false);
 	const hostForm = useForm<HostFormValues>({
 		resolver: zodResolver(hostFormSchema),
 		defaultValues: {
@@ -63,8 +65,10 @@ export default function HostGameModal({
 	};
 
 	const handleHostRoom = () => {
+		setIsLoading(true);
 		hostRoom(hostForm.getValues());
 		hostForm.reset();
+		setIsLoading(false);
 	};
 
 	return (
@@ -104,7 +108,8 @@ export default function HostGameModal({
 								/>
 								<Button
 									variant='ghost'
-									size='icon'>
+									size='icon'
+									className='bg-input/50'>
 									{hostForm.watch('imposter_amount')}
 								</Button>
 								<Button
@@ -176,6 +181,7 @@ export default function HostGameModal({
 							render={
 								<Button
 									type='button'
+									disabled={isLoading}
 									variant='destructive'>
 									Cancel
 								</Button>
@@ -183,6 +189,7 @@ export default function HostGameModal({
 						/>
 						<Button
 							type='submit'
+							disabled={isLoading}
 							className='w-full sm:w-[48%] sm:gap-2'>
 							Host Game
 						</Button>

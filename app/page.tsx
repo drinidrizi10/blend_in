@@ -12,10 +12,11 @@ import {
 	DialogTrigger,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { useUser } from '@clerk/nextjs';
 
 import HostGameModal from '@/components/parts/host-game-modal';
 import JoinGameModal from '@/components/parts/join-game-modal';
+import Link from 'next/link';
 
 const draw: Variants = {
 	hidden: { pathLength: 0, opacity: 0 },
@@ -99,6 +100,8 @@ const HatIcon = () => {
 };
 
 export default function Page() {
+	const currentUser = useUser();
+
 	return (
 		<div className='flex w-3/4 h-full flex-col justify-center gap-4'>
 			<motion.h1
@@ -153,15 +156,21 @@ export default function Page() {
 						delay: 0.55,
 						duration: 1,
 					}}>
-					<DialogTrigger
-						className='w-fit px-8 gap-3'
-						render={
-							<Button size='lg'>
-								Play
-								<Rocket className='scale-110' />
-							</Button>
-						}
-					/>
+					{!currentUser?.isSignedIn || !currentUser.isLoaded ? (
+						<Link href='/sign-in'>
+							<Button size='lg'>Start by Signing In</Button>
+						</Link>
+					) : (
+						<DialogTrigger
+							className='w-fit px-8 gap-3'
+							render={
+								<Button size='lg'>
+									Play
+									<Rocket className='scale-110' />
+								</Button>
+							}
+						/>
+					)}
 				</motion.div>
 				<DialogContent showCloseButton={false}>
 					<Tabs defaultValue='host'>
