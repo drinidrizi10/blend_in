@@ -4,15 +4,15 @@ import {
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from '../ui/card';
+} from '../card';
 import { joinFormSchema, JoinFormValues } from '@/lib/schemas';
 import { Controller, useForm } from 'react-hook-form';
-import { Label } from '../ui/label';
+import { Label } from '../label';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { DialogClose, DialogFooter } from '../ui/dialog';
-import { Button } from '../ui/button';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '../ui/input-otp';
+import { DialogClose, DialogFooter } from '../dialog';
+import { Button } from '../button';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '../input-otp';
 import { useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useRoom } from '@/hooks/use-room';

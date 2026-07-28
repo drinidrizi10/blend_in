@@ -13,10 +13,10 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUser } from '@clerk/nextjs';
-import { useSocket } from '@/components/authentication/socket-provider';
+import { useSocket } from '@/components/providers/socket-provider';
 
-import HostGameModal from '@/components/parts/host-game-modal';
-import JoinGameModal from '@/components/parts/join-game-modal';
+import HostGameModal from '@/components/ui/parts/host-game-modal';
+import JoinGameModal from '@/components/ui/parts/join-game-modal';
 import Link from 'next/link';
 
 const draw: Variants = {

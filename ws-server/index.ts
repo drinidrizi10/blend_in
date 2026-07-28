@@ -372,15 +372,35 @@ io.on('connection', (socket: AuthedSocket) => {
 			const targetRoom = rooms.get(roomCode);
 
 			if (!targetRoom) {
-				callback?.({ success: false, error: 'Room not found' });
+				return callback({ success: false, error: 'Room not found' });
+			}
+
+			// Already a member of this room
+			const existing = targetRoom.get(userId);
+			if (existing) {
+				existing.socket = socket;
+				socket.currentRoom = roomCode;
+				socket.join(roomCode);
+
+				callback({
+					success: true,
+					roomCode,
+					settings: roomSettings.get(roomCode),
+					status: roomStatus.get(roomCode) ?? 'OPEN',
+				});
+				socket.emit('chat_history', {
+					messages: roomChats.get(roomCode) ?? [],
+				});
+				broadcastMembersUpdate(roomCode);
 				return;
 			}
+
+			// New joiner
 			if (roomStatus.get(roomCode) === 'PLAYING') {
-				callback?.({
+				return callback({
 					success: false,
 					error: 'Game is in progress, please wait until the round is over',
 				});
-				return;
 			}
 
 			if (socket.currentRoom && rooms.has(socket.currentRoom)) {
@@ -395,18 +415,12 @@ io.on('connection', (socket: AuthedSocket) => {
 			socket.currentRoom = roomCode;
 			socket.join(roomCode);
 
-			log(
-				'ROOM JOIN',
-				`"${name}" joined ${roomCode} — members: ${targetRoom.size}`,
-			);
-
-			callback?.({
+			callback({
 				success: true,
 				roomCode,
 				settings: roomSettings.get(roomCode),
 				status: roomStatus.get(roomCode) ?? 'OPEN',
 			});
-
 			socket.emit('chat_history', {
 				messages: roomChats.get(roomCode) ?? [],
 			});

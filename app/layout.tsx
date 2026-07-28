@@ -5,8 +5,9 @@ import { cn } from '@/lib/utils';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeProvider } from '@/components/theme/theme-provider';
 import { ClerkProvider } from '@clerk/nextjs';
-import Header from '@/components/parts/header';
-import { SocketProvider } from '@/components/authentication/socket-provider';
+import Header from '@/components/ui/parts/header';
+import { SocketProvider } from '@/components/providers/socket-provider';
+import { Toaster } from '@/components/ui/toast';
 
 const notoSansHeading = Noto_Sans({
 	subsets: ['latin'],
@@ -60,9 +61,10 @@ export default function RootLayout({
 						<ClerkProvider>
 							<SocketProvider>
 								<Header />
-								<div className='bg-background w-full flex-1 min-h-0 flex flex-col items-center p-4'>
+								<div className='bg-background w-full flex-1 min-h-0 flex flex-col items-center'>
 									{children}
 								</div>
+								<Toaster />
 							</SocketProvider>
 						</ClerkProvider>
 					</TooltipProvider>

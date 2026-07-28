@@ -4,18 +4,18 @@ import {
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from '../ui/card';
+} from '../card';
 import { hostFormSchema, HostFormValues } from '@/lib/schemas';
 import { Controller, useForm } from 'react-hook-form';
-import { Label } from '../ui/label';
-import { Input } from '../ui/input';
-import { MultiSelect } from '../ui/multi-select';
+import { Label } from '../label';
+import { Input } from '../input';
+import { MultiSelect } from '../multi-select';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { CATEGORIES } from '@/data/categories';
-import { DialogClose, DialogFooter } from '../ui/dialog';
-import { Button } from '../ui/button';
+import { DialogClose, DialogFooter } from '../dialog';
+import { Button } from '../button';
 import {
 	Field,
 	FieldContent,
@@ -23,9 +23,9 @@ import {
 	FieldGroup,
 	FieldLabel,
 	FieldTitle,
-} from '../ui/field';
-import { Switch } from '../ui/switch';
-import { ButtonGroup } from '../ui/button-group';
+} from '../field';
+import { Switch } from '../switch';
+import { ButtonGroup } from '../button-group';
 import { MinusIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useUser } from '@clerk/nextjs';

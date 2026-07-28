@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useSocket } from '@/components/authentication/socket-provider';
+import { useSocket } from '@/components/providers/socket-provider';
 
 interface Member {
 	id: string;
