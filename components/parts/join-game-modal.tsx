@@ -8,19 +8,20 @@ import {
 import { joinFormSchema, JoinFormValues } from '@/lib/schemas';
 import { Controller, useForm } from 'react-hook-form';
 import { Label } from '../ui/label';
-import { Input } from '../ui/input';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DialogClose, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '../ui/input-otp';
 import { useState } from 'react';
+import { useUser } from '@clerk/nextjs';
+import { useRoom } from '@/hooks/use-room';
+import { useRouter } from 'next/navigation';
 
-export default function JoinGameModal({
-	joinGameRoom,
-}: {
-	joinGameRoom: (data: JoinFormValues) => void;
-}) {
+export default function JoinGameModal() {
+	const currentUser = useUser();
+	const { joinRoom, isConnected } = useRoom();
+	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(false);
 	const joinForm = useForm<JoinFormValues>({
 		resolver: zodResolver(joinFormSchema),
@@ -29,14 +30,27 @@ export default function JoinGameModal({
 		},
 	});
 
-	const handleJoinRoom = () => {
+	const handleJoinRoom = async () => {
+		if (!currentUser?.isSignedIn || !currentUser.isLoaded) return;
+		if (!isConnected) return;
+
 		setIsLoading(true);
-		// Make sure the room code is always uppercase before sending to parent component
-		joinForm.setValue(
-			'roomCode',
-			joinForm.getValues('roomCode').toUpperCase(),
+
+		const roomCode = joinForm.getValues('roomCode').toUpperCase();
+
+		console.log(`Join Room: ${roomCode}`);
+
+		const res = await joinRoom(
+			roomCode,
+			currentUser.user?.fullName || currentUser.user?.id,
 		);
-		joinGameRoom(joinForm.getValues());
+
+		if (res.success) {
+			console.log(`Join Room Response: ${JSON.stringify(res)}`);
+			// redirect to /room/[roomCode]
+			router.push(`/room/${roomCode}`);
+		}
+
 		joinForm.reset();
 		setIsLoading(false);
 	};

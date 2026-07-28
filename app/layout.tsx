@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeProvider } from '@/components/theme/theme-provider';
 import { ClerkProvider } from '@clerk/nextjs';
 import Header from '@/components/parts/header';
+import { SocketProvider } from '@/components/authentication/socket-provider';
 
 const notoSansHeading = Noto_Sans({
 	subsets: ['latin'],
@@ -57,10 +58,12 @@ export default function RootLayout({
 					disableTransitionOnChange>
 					<TooltipProvider>
 						<ClerkProvider>
-							<Header />
-							<div className='bg-background w-full flex-1 min-h-0 flex flex-col items-center p-4'>
-								{children}
-							</div>
+							<SocketProvider>
+								<Header />
+								<div className='bg-background w-full flex-1 min-h-0 flex flex-col items-center p-4'>
+									{children}
+								</div>
+							</SocketProvider>
 						</ClerkProvider>
 					</TooltipProvider>
 				</ThemeProvider>

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUser } from '@clerk/nextjs';
+import { useSocket } from '@/components/authentication/socket-provider';
 
 import HostGameModal from '@/components/parts/host-game-modal';
 import JoinGameModal from '@/components/parts/join-game-modal';
@@ -101,6 +102,7 @@ const HatIcon = () => {
 
 export default function Page() {
 	const currentUser = useUser();
+	const { socket, isConnected } = useSocket();
 
 	return (
 		<div className='flex w-3/4 h-full flex-col justify-center gap-4'>
@@ -196,9 +198,7 @@ export default function Page() {
 								variants={cardVariants}
 								initial='hidden'
 								whileInView='visible'>
-								<HostGameModal
-									hostRoom={(data) => console.log(data)}
-								/>
+								<HostGameModal />
 							</motion.div>
 						</TabsContent>
 						<TabsContent value='join'>
@@ -206,9 +206,7 @@ export default function Page() {
 								variants={cardVariants}
 								initial='hidden'
 								whileInView='visible'>
-								<JoinGameModal
-									joinGameRoom={(data) => console.log(data)}
-								/>
+								<JoinGameModal />
 							</motion.div>
 						</TabsContent>
 					</Tabs>

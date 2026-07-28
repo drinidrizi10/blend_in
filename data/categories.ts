@@ -2229,7 +2229,7 @@ const CATEGORIES = [
 	},
 ];
 
-function pickRandomWord(selectedCategories) {
+function pickRandomWord(selectedCategories: string[]) {
 	const pool = CATEGORIES.filter((c) => selectedCategories.includes(c.value));
 	if (pool.length === 0) return null;
 

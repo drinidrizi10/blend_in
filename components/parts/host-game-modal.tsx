@@ -28,12 +28,14 @@ import { Switch } from '../ui/switch';
 import { ButtonGroup } from '../ui/button-group';
 import { MinusIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
+import { useUser } from '@clerk/nextjs';
+import { useRoom } from '@/hooks/use-room';
+import { useRouter } from 'next/navigation';
 
-export default function HostGameModal({
-	hostRoom,
-}: {
-	hostRoom: (data: HostFormValues) => void;
-}) {
+export default function HostGameModal() {
+	const currentUser = useUser();
+	const { createRoom, isConnected } = useRoom();
+	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(false);
 	const hostForm = useForm<HostFormValues>({
 		resolver: zodResolver(hostFormSchema),
@@ -64,9 +66,25 @@ export default function HostGameModal({
 		);
 	};
 
-	const handleHostRoom = () => {
+	const handleHostRoom = async () => {
+		if (!currentUser?.isSignedIn || !currentUser.isLoaded) return;
+		if (!isConnected) return;
+
 		setIsLoading(true);
-		hostRoom(hostForm.getValues());
+
+		console.log(`Create Room: ${JSON.stringify(hostForm.getValues())}`);
+
+		const res = await createRoom(
+			currentUser.user?.fullName || currentUser.user?.id,
+			hostForm.getValues(),
+		);
+
+		if (res.success) {
+			console.log(`Create Room Response: ${JSON.stringify(res)}`);
+			// redirect to /room/[roomCode]
+			router.push(`/room/${res.roomCode}`);
+		}
+
 		hostForm.reset();
 		setIsLoading(false);
 	};
@@ -168,6 +186,10 @@ export default function HostGameModal({
 									</FieldContent>
 									<Switch
 										id='switch-hints'
+										onCheckedChange={(checked) => {
+											hostForm.setValue('hints', checked);
+										}}
+										{...hostForm.register('hints')}
 										defaultChecked
 									/>
 								</Field>
