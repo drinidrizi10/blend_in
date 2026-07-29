@@ -13,28 +13,11 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUser } from '@clerk/nextjs';
-import { useSocket } from '@/components/providers/socket-provider';
 
 import HostGameModal from '@/components/ui/parts/host-game-modal';
 import JoinGameModal from '@/components/ui/parts/join-game-modal';
 import Link from 'next/link';
-
-const draw: Variants = {
-	hidden: { pathLength: 0, opacity: 0 },
-	visible: {
-		pathLength: 1,
-		opacity: 1,
-		transition: {
-			pathLength: {
-				type: 'spring',
-				delay: 0.15,
-				duration: 2,
-				bounce: 0,
-			},
-			opacity: { delay: 0, duration: 0.7 },
-		},
-	},
-};
+import LogoIcon from '@/components/custom-icons/logo-icon';
 
 const cardVariants: Variants = {
 	hidden: {
@@ -52,57 +35,8 @@ const cardVariants: Variants = {
 	},
 };
 
-const HatIcon = () => {
-	return (
-		<motion.svg
-			xmlns='http://www.w3.org/2000/svg'
-			width='64'
-			height='64'
-			viewBox='0 0 24 24'
-			fill='none'
-			stroke='currentColor'
-			strokeWidth='2'
-			strokeLinecap='round'
-			strokeLinejoin='round'
-			className='lucide lucide-hat-glasses-icon lucide-hat-glasses'
-			initial='hidden'
-			animate='visible'>
-			<motion.path
-				d='M14 18a2 2 0 0 0-4 0'
-				variants={draw}
-				custom={1}
-			/>
-			<motion.path
-				d='m19 11-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11'
-				variants={draw}
-				custom={1}
-			/>
-			<motion.path
-				d='M2 11h20'
-				variants={draw}
-				custom={1}
-			/>
-			<motion.circle
-				cx='17'
-				cy='18'
-				r='3'
-				variants={draw}
-				custom={1}
-			/>
-			<motion.circle
-				cx='7'
-				cy='18'
-				r='3'
-				variants={draw}
-				custom={1}
-			/>
-		</motion.svg>
-	);
-};
-
 export default function Page() {
 	const currentUser = useUser();
-	const { socket, isConnected } = useSocket();
 
 	return (
 		<div className='flex w-3/4 h-full flex-col justify-center gap-4'>
@@ -117,7 +51,7 @@ export default function Page() {
 					animate={{ rotate: 35, y: 0, opacity: 1 }}
 					transition={{ type: 'spring', damping: 15, mass: 2 }}
 					className='relative -top-8 -left-4'>
-					<HatIcon />
+					<LogoIcon />
 				</motion.div>
 			</motion.h1>
 			<div className='flex flex-col gap-2'>

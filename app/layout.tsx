@@ -64,6 +64,12 @@ export default function RootLayout({
 								<div className='bg-background w-full flex-1 min-h-0 flex flex-col items-center'>
 									{children}
 								</div>
+								<div
+									id='clerk-captcha'
+									data-cl-theme='auto'
+									data-cl-size='compact'
+									className='fixed bottom-4 left-1/2 -translate-x-1/2 z-50 empty:hidden'
+								/>
 								<Toaster />
 							</SocketProvider>
 						</ClerkProvider>
