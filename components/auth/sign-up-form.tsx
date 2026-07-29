@@ -75,12 +75,6 @@ export function SignUpForm() {
 							</Link>
 						</p>
 					</div>
-
-					{/* <div
-						id='clerk-captcha'
-						data-cl-theme='auto'
-						data-cl-size='flexible'
-					/> */}
 				</CardContent>
 			</Card>
 		</div>
