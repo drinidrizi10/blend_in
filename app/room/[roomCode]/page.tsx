@@ -30,6 +30,7 @@ import {
 	Message,
 	MessageAvatar,
 	MessageContent,
+	MessageHeader,
 } from '@/components/ui/message';
 import {
 	InputGroup,
@@ -40,10 +41,12 @@ import {
 } from '@/components/ui/input-group';
 import { useState } from 'react';
 import { Send } from 'lucide-react';
+import useWindowSize from '@/hooks/use-window-size';
 
 export default function RoomPage() {
 	const { members, settings, roomCode, status, selfRole } = useRoom();
 	const avatars = useUserAvatars(members.map((m) => m.id));
+	const { width } = useWindowSize();
 
 	const copyToClipboard = ({ text }: { text: string }) => {
 		navigator.clipboard.writeText(text);
@@ -57,10 +60,10 @@ export default function RoomPage() {
 
 	return (
 		<div className='flex w-full h-full items-center justify-center '>
-			<div className='flex w-full h-full py-3 px-4 md:w-3/4 md:px-0'>
+			<div className='flex w-full h-full py-3 px-3 md:w-3/4 md:px-0'>
 				<Card className='w-full h-full py-0 flex flex-col justify-between gap-3'>
-					<CardHeader className='bg-accent py-3'>
-						<CardTitle className='flex items-center justify-between'>
+					<CardHeader className='bg-accent py-1 md:py-3 px-1 md:px-3'>
+						<CardTitle className='flex items-center justify-between md:justify-start gap-2'>
 							<Tooltip>
 								<TooltipTrigger
 									render={
@@ -71,7 +74,7 @@ export default function RoomPage() {
 												})
 											}
 											variant='outline'
-											className='text-md p-3.5 font-normal select-none cursor-pointer hover:scale-101 active:scale-99'>
+											className='text-sm md:text-md p-3.5 font-normal select-none cursor-pointer hover:scale-101 active:scale-99'>
 											Room:{' '}
 											<span className='font-bold select-text'>
 												{roomCode}
@@ -88,33 +91,21 @@ export default function RoomPage() {
 									</p>
 								</TooltipContent>
 							</Tooltip>
-							<ButtonGroup>
-								{selfRole === 'host' && (
-									<>
-										<Button
-											size='sm'
-											variant='default'
-											// className='bg-green-600/20 text-green-600 hover:bg-green-600/30'
-										>
-											Start Game
-										</Button>
-										<Button
-											size='sm'
-											variant='outline'>
-											Room Settings
-										</Button>
-									</>
-								)}
-								<Button
-									size='sm'
-									variant='destructive'>
-									Leave Room
-								</Button>
-							</ButtonGroup>
+							<Badge
+								variant='outline'
+								className='text-sm md:text-md p-3.5 font-normal select-none'>
+								Status:{' '}
+								<span className='font-bold'>
+									{status === 'OPEN' ? 'Open' : 'Playing'}
+								</span>
+							</Badge>
 						</CardTitle>
 					</CardHeader>
-					<CardContent className='flex-1'>
-						<ResizablePanelGroup orientation='horizontal'>
+					<CardContent className='flex-1 px-2 md:px-3'>
+						<ResizablePanelGroup
+							orientation={
+								width < 640 ? 'vertical' : 'horizontal'
+							}>
 							<ResizablePanel
 								defaultSize={'60%'}
 								minSize={'30%'}
@@ -156,7 +147,10 @@ export default function RoomPage() {
 									))}
 								</ul>
 							</ResizablePanel>
-							<ResizableHandle withHandle />
+							<ResizableHandle
+								withHandle
+								className='m-2'
+							/>
 							<ResizablePanel
 								defaultSize={'40%'}
 								minSize={'30%'}
@@ -171,9 +165,12 @@ export default function RoomPage() {
 											<AvatarFallback>B</AvatarFallback>
 										</Avatar>
 									</MessageAvatar>
-									<MessageContent>
+									<MessageContent className='gap-1'>
+										<MessageHeader className='px-2'>
+											BlendIn Development
+										</MessageHeader>
 										<Bubble variant='muted'>
-											<BubbleContent>
+											<BubbleContent className='p-2'>
 												First message of the room!
 											</BubbleContent>
 										</Bubble>
@@ -182,20 +179,34 @@ export default function RoomPage() {
 							</ResizablePanel>
 						</ResizablePanelGroup>
 					</CardContent>
-					<CardFooter className='bg-accent py-3 flex flex-row justify-between items-center'>
-						<Badge
-							variant='outline'
-							className='text-md p-3.5 font-normal select-none'>
-							Status:{' '}
-							<span className='font-bold'>
-								{status === 'OPEN' ? 'Open' : 'Playing'}
-							</span>
-						</Badge>
+					<CardFooter className='bg-accent py-1 md:py-3 px-1 md:px-3 gap-2 flex flex-col sm:flex-row justify-between items-center'>
 						<ButtonGroup>
+							{selfRole === 'host' && (
+								<>
+									<Button
+										size={width < 640 ? 'sm' : 'default'}
+										variant='default'>
+										Start Game
+									</Button>
+									<Button
+										size={width < 640 ? 'sm' : 'default'}
+										variant='outline'>
+										Room Settings
+									</Button>
+								</>
+							)}
+							<Button
+								size={width < 640 ? 'sm' : 'default'}
+								variant='destructive'>
+								Leave Room
+							</Button>
+						</ButtonGroup>
+						<ButtonGroup className='max-w-xl w-full'>
 							<InputGroup>
 								<InputGroupInput
 									id='input-button-group'
 									placeholder='Write Message...'
+									className='text-sm'
 									autoComplete='off'
 									value={chatMessage}
 									onChange={(e) =>
@@ -211,6 +222,7 @@ export default function RoomPage() {
 							</InputGroup>
 							<Button
 								variant='outline'
+								size={width < 640 ? 'sm' : 'default'}
 								disabled={chatMessage.trim().length === 0}>
 								<Send />
 								Send
