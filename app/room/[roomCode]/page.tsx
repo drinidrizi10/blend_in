@@ -196,6 +196,7 @@ export default function RoomPage() {
 								<InputGroupInput
 									id='input-button-group'
 									placeholder='Write Message...'
+									autoComplete='off'
 									value={chatMessage}
 									onChange={(e) =>
 										setChatMessage(e.target.value)

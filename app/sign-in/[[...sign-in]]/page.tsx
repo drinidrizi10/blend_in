@@ -1,9 +1,5 @@
-import { SignIn } from '@clerk/nextjs';
+import { SignInForm } from '@/components/auth/sign-in-form';
 
 export default function Page() {
-	return (
-		<div className='flex w-ful h-full items-center justify-center'>
-			<SignIn signUpUrl='/sign-up' />
-		</div>
-	);
+	return <SignInForm />;
 }
