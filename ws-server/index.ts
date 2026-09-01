@@ -3,9 +3,6 @@ import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { createClerkClient, verifyToken } from '@clerk/backend';
 import crypto from 'crypto';
-// Copy your existing categories/pickRandomWord helper into the new project
-// and adjust this path to match its new location.
-import { pickRandomWord } from '../data/categories';
 
 const clerkClient = createClerkClient({
 	secretKey: process.env.CLERK_SECRET_KEY!,
@@ -83,6 +80,66 @@ const roomVoteTimers = new Map<string, NodeJS.Timeout>();
 const VOTE_DURATION = 30000;
 
 // ---------- Helpers ----------
+
+async function fetchWordFromAI(
+	categories: string[],
+): Promise<{ category: string; word: string; hint: string }> {
+	const categoryLabels: Record<string, string> = {
+		animals: 'Animals',
+		food_drinks: 'Food & Drinks',
+		countries: 'Countries',
+		professions: 'Professions',
+		sports: 'Sports',
+		household_items: 'Household Items',
+		clothing_accessories: 'Clothing & Accessories',
+		vehicles_transport: 'Vehicles & Transport',
+		school_office: 'School & Office',
+		nature_weather: 'Nature & Weather',
+	};
+
+	const categoryList = categories
+		.map((c) => categoryLabels[c] ?? c)
+		.join(', ');
+
+	const res = await fetch(`${process.env.CLIENT_URL}/api/ai`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			prompt: `Act as a game content generator for a hidden-role "imposter" party game.
+            Game Context:
+            In this game, civilian players are given a specific target word, while the imposter is only given a highly generalized hint. Players take turns saying a single associated word to prove they are civilians. The imposter uses the hint to try and blend in.
+
+            Your Task:
+            Randomly select one category from the provided list, generate a target word that fits that category, and create a very vague, generalized hint for that word. The hint MUST NOT describe the word directly. Instead, it should describe a broad overarching concept, an abstract feeling, or a high-level classification.
+
+            Categories:
+            [${categoryList}]
+
+            Hint Examples (Strict Guide):
+            Word: "Soccer" | BAD Hint: "Team sport played on a field" | GOOD Hint: "Requires physical energy" or "Group activity"
+            Word: "Apple" | BAD Hint: "A round fruit" | GOOD Hint: "Found in nature" or "Consumable"
+            Word: "Teacher" | BAD Hint: "Works in a school" | GOOD Hint: "Authority figure" or "Involves communication"
+
+            Strict Rules:
+            The target word MUST be a single word or a hyphenated word. Absolutely no spaces.
+            The hint must be cryptic and abstract. Never describe shape, color, or exact function.
+            Format output as a single minified JSON line with no newline characters.
+
+            Output Format:
+            Return ONLY valid JSON, no extra text or markdown.
+            {"category": "The chosen category", "word": "The target word", "hint": "The vague hint"}`,
+		}),
+	});
+
+	if (!res.ok) throw new Error(`AI API responded with status ${res.status}`);
+
+	const data = await res.json();
+	if (!data.output?.word || !data.output?.category || !data.output?.hint) {
+		throw new Error('Invalid AI response shape');
+	}
+
+	return data.output;
+}
 
 function generateRoomCode(): string {
 	return crypto.randomBytes(3).toString('hex').toUpperCase();
@@ -428,7 +485,7 @@ io.on('connection', (socket: AuthedSocket) => {
 		},
 	);
 
-	socket.on('start_game', (callback: (res: any) => void) => {
+	socket.on('start_game', async (callback: (res: any) => void) => {
 		const roomCode = socket.currentRoom;
 		if (!roomCode)
 			return callback?.({ success: false, error: 'Not in a room' });
@@ -460,18 +517,32 @@ io.on('connection', (socket: AuthedSocket) => {
 			settings.imposter_amount,
 			memberList.length - 1,
 		);
-		const picked = pickRandomWord(settings.categories);
-		if (!picked) {
+
+		// Shuffle and assign imposters before the async call so
+		// room state doesn't drift while we await the AI
+		const shuffled = [...memberList].sort(() => Math.random() - 0.5);
+		const imposterIds = new Set(
+			shuffled.slice(0, imposterCount).map(([id]) => id),
+		);
+
+		let picked: { category: string; word: string; hint: string };
+		try {
+			picked = await fetchWordFromAI(settings.categories);
+		} catch (err) {
+			log('AI ERROR', (err as Error).message);
 			callback?.({
 				success: false,
-				error: 'No words available for selected categories',
+				error: 'Failed to generate word, please try again',
 			});
 			return;
 		}
 
+		// Re-check room still exists after async gap
+		if (!rooms.has(roomCode)) return;
+
 		log(
 			'GAME START',
-			`Room ${roomCode} | Word: "${picked.word}" | Category: ${picked.category} | Imposters: ${imposterCount}`,
+			`Room ${roomCode} | Word: "${picked.word}" | Category: "${picked.category}" | Imposters: ${imposterCount}`,
 		);
 
 		roomStatus.set(roomCode, 'PLAYING');
@@ -479,11 +550,6 @@ io.on('connection', (socket: AuthedSocket) => {
 		roomWords.set(roomCode, [{ round: 1, words: [] }]);
 		roomVotes.set(roomCode, {});
 		roomEliminated.set(roomCode, new Set());
-
-		const shuffled = [...memberList].sort(() => Math.random() - 0.5);
-		const imposterIds = new Set(
-			shuffled.slice(0, imposterCount).map(([id]) => id),
-		);
 		roomImposters.set(roomCode, imposterIds);
 
 		io.to(roomCode).emit('room_status', { status: 'PLAYING' });
