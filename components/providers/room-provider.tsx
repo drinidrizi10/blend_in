@@ -5,7 +5,9 @@ import {
 	useContext,
 	useEffect,
 	useState,
+	useCallback,
 	ReactNode,
+	useRef,
 } from 'react';
 import { useSocket } from './socket-provider';
 import { useUser } from '@clerk/nextjs';
@@ -20,7 +22,12 @@ interface RoomSettings {
 	hints: boolean;
 	categories: string[];
 }
-type JoinState = 'connecting' | 'joining' | 'joined' | 'error';
+interface ChatMessage {
+	from: string;
+	fromId: string;
+	text: string;
+	timestamp: number;
+}
 
 interface RoomContextValue {
 	roomCode: string;
@@ -30,7 +37,17 @@ interface RoomContextValue {
 	joinState: JoinState;
 	error: string | null;
 	selfRole: 'host' | 'member' | null;
+	messages: ChatMessage[];
+	selfId: string | null;
+	startGame: () => Promise<{ success: boolean; error?: string }>;
+	leaveRoom: () => Promise<{ success: boolean; error?: string }>;
+	updateSettings: (
+		settings: Partial<RoomSettings>,
+	) => Promise<{ success: boolean; error?: string }>;
+	sendChat: (text: string) => void;
 }
+
+type JoinState = 'connecting' | 'joining' | 'joined' | 'error';
 
 const RoomContext = createContext<RoomContextValue | null>(null);
 
@@ -48,6 +65,8 @@ export function RoomProvider({
 	const [status, setStatus] = useState<'OPEN' | 'PLAYING'>('OPEN');
 	const [joinState, setJoinState] = useState<JoinState>('connecting');
 	const [error, setError] = useState<string | null>(null);
+	const [messages, setMessages] = useState<ChatMessage[]>([]);
+	const selfId = user?.id ?? null;
 
 	useEffect(() => {
 		if (!socket || !isConnected) return;
@@ -61,10 +80,18 @@ export function RoomProvider({
 		function onRoomStatus({ status }: { status: 'OPEN' | 'PLAYING' }) {
 			setStatus(status);
 		}
+		function onChat(msg: ChatMessage) {
+			setMessages((prev) => [...prev, msg]);
+		}
+		function onChatHistory({ messages }: { messages: ChatMessage[] }) {
+			setMessages(messages);
+		}
 
 		socket.on('members_update', onMembersUpdate);
 		socket.on('game_settings', onGameSettings);
 		socket.on('room_status', onRoomStatus);
+		socket.on('chat', onChat);
+		socket.on('chat_history', onChatHistory);
 
 		setJoinState('joining');
 		const name = user?.firstName ?? 'Player';
@@ -84,8 +111,52 @@ export function RoomProvider({
 			socket.off('members_update', onMembersUpdate);
 			socket.off('game_settings', onGameSettings);
 			socket.off('room_status', onRoomStatus);
+			socket.off('chat', onChat);
+			socket.off('chat_history', onChatHistory);
 		};
 	}, [socket, isConnected, roomCode, user?.firstName]);
+
+	const startGame = useCallback(() => {
+		return new Promise<{ success: boolean; error?: string }>((resolve) => {
+			if (!socket)
+				return resolve({ success: false, error: 'Not connected' });
+			socket.emit('start_game', (res: any) => resolve(res));
+		});
+	}, [socket]);
+
+	const leaveRoom = useCallback(() => {
+		return new Promise<{ success: boolean; error?: string }>((resolve) => {
+			if (!socket)
+				return resolve({ success: false, error: 'Not connected' });
+			socket.emit('leave_room', (res: any) => resolve(res));
+		});
+	}, [socket]);
+
+	const updateSettings = useCallback(
+		(newSettings: Partial<RoomSettings>) => {
+			return new Promise<{ success: boolean; error?: string }>(
+				(resolve) => {
+					if (!socket)
+						return resolve({
+							success: false,
+							error: 'Not connected',
+						});
+					socket.emit('update_settings', newSettings, (res: any) =>
+						resolve(res),
+					);
+				},
+			);
+		},
+		[socket],
+	);
+
+	const sendChat = useCallback(
+		(text: string) => {
+			if (!socket || !text.trim()) return;
+			socket.emit('chat', { text: text.trim().slice(0, 250) });
+		},
+		[socket],
+	);
 
 	const selfRole = members.find((m) => m.id === user?.id)?.role ?? null;
 
@@ -99,6 +170,12 @@ export function RoomProvider({
 				joinState,
 				error,
 				selfRole,
+				messages,
+				selfId,
+				startGame,
+				leaveRoom,
+				updateSettings,
+				sendChat,
 			}}>
 			{children}
 		</RoomContext.Provider>

@@ -542,7 +542,7 @@ io.on('connection', (socket: AuthedSocket) => {
 
 		log(
 			'GAME START',
-			`Room ${roomCode} | Word: "${picked.word}" | Category: "${picked.category}" | Imposters: ${imposterCount}`,
+			`Room ${roomCode} | Imposters: ${imposterCount} | Category: "${picked.category}" | Word: "${picked.word}" | Hint: "${picked.hint}"`,
 		);
 
 		roomStatus.set(roomCode, 'PLAYING');
