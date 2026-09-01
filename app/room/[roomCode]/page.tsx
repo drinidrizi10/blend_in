@@ -61,10 +61,11 @@ import { Switch } from '@/components/ui/switch';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CATEGORIES } from '@/data/categories';
-import { MinusIcon, PlusIcon, Send } from 'lucide-react';
+import { ChevronDown, MinusIcon, PlusIcon, Send } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import useWindowSize from '@/hooks/use-window-size';
+import { useSocket } from '@/components/providers/socket-provider';
 
 export default function RoomPage() {
 	const {
@@ -75,11 +76,23 @@ export default function RoomPage() {
 		selfRole,
 		selfId,
 		messages,
+		gameState,
+		turnState,
+		currentRound,
+		currentRoundWords,
+		roundHistory,
+		voteState,
+		eliminatedIds,
 		sendChat,
 		startGame,
 		leaveRoom,
 		updateSettings,
+		submitWord,
+		castVote,
+		kickMember,
+		stopGame,
 	} = useRoom();
+	const { socket } = useSocket();
 	const avatars = useUserAvatars(members.map((m) => m.id));
 	const { width } = useWindowSize();
 	const router = useRouter();
@@ -87,6 +100,12 @@ export default function RoomPage() {
 	const [chatMessage, setChatMessage] = useState('');
 	const [isStarting, setIsStarting] = useState(false);
 	const [isLeaving, setIsLeaving] = useState(false);
+	const [expandedMembers, setExpandedMembers] = useState<Set<string>>(
+		new Set(),
+	);
+	const [myVote, setMyVote] = useState<string | null>(null);
+	const [wordInput, setWordInput] = useState('');
+	const [isSubmittingWord, setIsSubmittingWord] = useState(false);
 
 	// Add bottomRef for auto-scroll alongside other useState:
 	const bottomRef = useRef<HTMLDivElement>(null);
@@ -114,6 +133,25 @@ export default function RoomPage() {
 	useEffect(() => {
 		bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
 	}, [messages]);
+
+	useEffect(() => {
+		if (!voteState) setMyVote(null);
+	}, [voteState]);
+
+	useEffect(() => {
+		if (!socket) return;
+		function onKicked() {
+			toast.add({
+				type: 'error',
+				title: 'You were kicked from the room',
+			});
+			router.push('/');
+		}
+		socket.on('kicked', onKicked);
+		return () => {
+			socket.off('kicked', onKicked);
+		};
+	}, [socket, router]);
 
 	const copyToClipboard = ({ text }: { text: string }) => {
 		navigator.clipboard.writeText(text);
@@ -159,6 +197,56 @@ export default function RoomPage() {
 		setChatMessage('');
 	};
 
+	function toggleMemberExpanded(memberId: string) {
+		setExpandedMembers((prev) => {
+			const next = new Set(prev);
+			next.has(memberId) ? next.delete(memberId) : next.add(memberId);
+			return next;
+		});
+	}
+
+	function getWordHistoryForMember(memberId: string) {
+		const history: { round: number; word: string; live?: boolean }[] = [];
+
+		for (const roundData of roundHistory) {
+			const entry = roundData.words.find((w) => w.userId === memberId);
+			if (entry)
+				history.push({ round: roundData.round, word: entry.word });
+		}
+
+		const liveEntry = currentRoundWords.find((w) => w.userId === memberId);
+		const currentRoundInHistory = roundHistory.find(
+			(r) => r.round === currentRound,
+		);
+		if (liveEntry && !currentRoundInHistory) {
+			history.push({
+				round: currentRound,
+				word: liveEntry.word,
+				live: true,
+			});
+		}
+
+		return history.sort((a, b) => a.round - b.round);
+	}
+
+	const isMyTurn = turnState?.currentTurn === selfId;
+	const isSelfEliminated = eliminatedIds.includes(selfId ?? '');
+	const isVoting = voteState !== null;
+
+	const handleSubmitWord = async () => {
+		const text = wordInput.trim();
+		if (!text || !isMyTurn) return;
+		setIsSubmittingWord(true);
+		const res = await submitWord(text);
+		if (res.success) setWordInput('');
+		setIsSubmittingWord(false);
+	};
+
+	const handleCastVote = async (targetUserId: string) => {
+		setMyVote(targetUserId);
+		await castVote(targetUserId);
+	};
+
 	const canStart = members.length >= 2 && status === 'OPEN';
 
 	return (
@@ -194,14 +282,61 @@ export default function RoomPage() {
 									</p>
 								</TooltipContent>
 							</Tooltip>
-							<Badge
+							{/* <Badge
 								variant='outline'
 								className='text-sm md:text-md p-3.5 font-normal select-none'>
 								Status:{' '}
 								<span className='font-bold'>
 									{status === 'OPEN' ? 'Open' : 'Playing'}
 								</span>
-							</Badge>
+							</Badge> */}
+
+							{gameState?.role && (
+								<Badge
+									variant='outline'
+									className={`text-sm md:text-md p-3.5 font-normal select-none ${gameState?.role === 'player' ? 'text-green-400' : 'text-destructive'}`}>
+									Role:{' '}
+									<span className='font-bold'>
+										{gameState?.role === 'player'
+											? 'Player'
+											: 'Imposter'}
+									</span>
+								</Badge>
+							)}
+
+							{gameState?.category && (
+								<Badge
+									variant='outline'
+									className='text-sm md:text-md p-3.5 font-normal select-none'>
+									Category:{' '}
+									<span className='font-bold'>
+										{gameState?.category}
+									</span>
+								</Badge>
+							)}
+
+							{gameState?.word && gameState?.role === 'player' ? (
+								<Badge
+									variant='outline'
+									className='text-sm md:text-md p-3.5 font-normal select-none'>
+									Word:{' '}
+									<span className='font-bold'>
+										{gameState?.word}
+									</span>
+								</Badge>
+							) : null}
+
+							{gameState?.hint &&
+							gameState?.role === 'imposter' ? (
+								<Badge
+									variant='outline'
+									className='text-sm md:text-md p-3.5 font-normal select-none'>
+									Hint:{' '}
+									<span className='font-bold'>
+										{gameState?.hint}
+									</span>
+								</Badge>
+							) : null}
 						</CardTitle>
 					</CardHeader>
 
@@ -214,42 +349,371 @@ export default function RoomPage() {
 							<ResizablePanel
 								defaultSize={'60%'}
 								minSize={'30%'}
-								className='pr-4'>
-								<h1 className='text-lg font-semibold mb-3'>
-									Members List
-								</h1>
-								<ul className='flex flex-col gap-2'>
-									{members.map((m) => (
-										<Item
-											variant='muted'
-											key={m.id}>
-											<ItemMedia variant='icon'>
-												<Avatar>
-													{avatars[m.id]
-														?.profile_picture_url && (
-														<AvatarImage
-															src={
-																avatars[m.id]
-																	.profile_picture_url!
-															}
-														/>
-													)}
-													<AvatarFallback>
-														{m.name[0]}
-													</AvatarFallback>
-												</Avatar>
-											</ItemMedia>
-											<ItemContent>
-												<ItemTitle>
-													{m.name}{' '}
-													{m.role === 'host' && (
-														<Badge>Host</Badge>
-													)}
-												</ItemTitle>
-											</ItemContent>
-										</Item>
-									))}
-								</ul>
+								className='pr-4 flex flex-col min-h-0 overflow-hidden'>
+								<div className='flex items-center justify-between mb-3 shrink-0'>
+									<h1 className='text-lg font-semibold'>
+										Members
+									</h1>
+									{isVoting && (
+										<div className='flex flex-col items-end gap-1'>
+											<span className='text-sm text-muted-foreground'>
+												Vote ends in{' '}
+												<span
+													className={`font-semibold ${voteState.timeLeft <= 10 ? 'text-destructive' : ''}`}>
+													{voteState.timeLeft}s
+												</span>
+											</span>
+											<div className='w-32 h-1 bg-muted rounded-full overflow-hidden'>
+												<div
+													className='h-full bg-primary transition-all duration-1000 ease-linear'
+													style={{
+														width: `${Math.max(0, (voteState.timeLeft / voteState.voteDuration) * 100)}%`,
+													}}
+												/>
+											</div>
+										</div>
+									)}
+								</div>
+
+								<ScrollArea className='flex-1 min-h-0'>
+									<ul className='flex flex-col gap-2 pr-2'>
+										{members.map((m) => {
+											const turnIndex =
+												turnState?.order.indexOf(
+													m.id,
+												) ?? -1;
+											const isCurrentTurn =
+												turnState?.currentTurn === m.id;
+											const isEliminated =
+												eliminatedIds.includes(m.id);
+											const isMe = m.id === selfId;
+											const voteCount =
+												voteState?.tally[m.id] ?? 0;
+											const canVote =
+												isVoting &&
+												!isSelfEliminated &&
+												m.id !== selfId &&
+												!isEliminated;
+											const wordHistory =
+												getWordHistoryForMember(m.id);
+											const hasHistory =
+												wordHistory.length > 0;
+											const isExpanded =
+												expandedMembers.has(m.id);
+
+											// Word to show inline: current round word if exists, else latest from history
+											const currentRoundWord =
+												currentRoundWords.find(
+													(w) => w.userId === m.id,
+												)?.word;
+											const latestHistoryWord =
+												wordHistory[
+													wordHistory.length - 1
+												];
+											const inlineWord =
+												currentRoundWord ??
+												(wordHistory.length > 0 &&
+												!currentRoundWord
+													? latestHistoryWord?.word
+													: null);
+											const inlineWordIsLive =
+												!!currentRoundWord;
+											const inlineWordRound =
+												currentRoundWord
+													? currentRound
+													: latestHistoryWord?.round;
+
+											return (
+												<li key={m.id}>
+													<Item
+														variant='muted'
+														className={`
+                                                            ${isEliminated ? 'opacity-40' : ''}
+                                                            ${isCurrentTurn && !isEliminated ? 'border border-green-400' : ''}
+                                                            ${hasHistory ? 'cursor-pointer' : ''}
+                                                            transition-all
+                                                        `}
+														onClick={() =>
+															hasHistory &&
+															toggleMemberExpanded(
+																m.id,
+															)
+														}>
+														<ItemMedia variant='icon'>
+															<Avatar>
+																{avatars[m.id]
+																	?.profile_picture_url && (
+																	<AvatarImage
+																		src={
+																			avatars[
+																				m
+																					.id
+																			]
+																				.profile_picture_url!
+																		}
+																	/>
+																)}
+																<AvatarFallback>
+																	{m.name[0]}
+																</AvatarFallback>
+															</Avatar>
+														</ItemMedia>
+														<ItemContent>
+															<ItemTitle className='flex flex-wrap items-center gap-1.5'>
+																<span
+																	className={
+																		isEliminated
+																			? 'line-through'
+																			: ''
+																	}>
+																	{m.name}
+																</span>
+
+																{m.role ===
+																	'host' && (
+																	<Badge>
+																		Host
+																	</Badge>
+																)}
+																{isMe && (
+																	<Badge variant='outline'>
+																		You
+																	</Badge>
+																)}
+																{isEliminated && (
+																	<Badge variant='destructive'>
+																		Eliminated
+																	</Badge>
+																)}
+
+																{!isEliminated &&
+																	isCurrentTurn && (
+																		<Badge className='bg-green-600 hover:bg-green-600 text-white'>
+																			Writing...
+																		</Badge>
+																	)}
+																{!isEliminated &&
+																	turnState &&
+																	turnIndex !==
+																		-1 && (
+																		<Badge variant='secondary'>
+																			#
+																			{turnIndex +
+																				1}
+																		</Badge>
+																	)}
+																{isVoting &&
+																	!isEliminated &&
+																	voteCount >
+																		0 && (
+																		<Badge variant='secondary'>
+																			{
+																				voteCount
+																			}{' '}
+																			vote
+																			{voteCount !==
+																			1
+																				? 's'
+																				: ''}
+																		</Badge>
+																	)}
+
+																{/* Inline word */}
+																{inlineWord &&
+																	!isExpanded && (
+																		<span className='flex items-center gap-1 bg-background/50 rounded px-1.5 py-0.5 font-mono'>
+																			<span className='text-sm opacity-50'>
+																				R
+																				{
+																					inlineWordRound
+																				}
+
+																				:
+																			</span>
+																			<span className='text-sm font-medium text-foreground'>
+																				{
+																					inlineWord
+																				}
+																			</span>
+																			{inlineWordIsLive && (
+																				<span className='w-1.5 h-1.5 rounded-full bg-green-500 inline-block' />
+																			)}
+																			{wordHistory.length >
+																				1 && (
+																				<span className='text-sm opacity-40'>
+																					+
+																					{wordHistory.length -
+																						1}
+																				</span>
+																			)}
+																		</span>
+																	)}
+															</ItemTitle>
+
+															{/* Expanded word history */}
+															{isExpanded &&
+																hasHistory && (
+																	<div
+																		className='flex flex-wrap gap-1.5 mt-1'
+																		onClick={(
+																			e,
+																		) =>
+																			e.stopPropagation()
+																		}>
+																		{wordHistory.map(
+																			(
+																				entry,
+																			) => (
+																				<div
+																					key={
+																						entry.round
+																					}
+																					className='flex items-center gap-1 bg-background/50 rounded px-1.5 py-0.5 font-mono'>
+																					<span className='text-sm text-muted-foreground'>
+																						R
+																						{
+																							entry.round
+																						}
+																					</span>
+																					<span className='text-sm font-semibold'>
+																						{
+																							entry.word
+																						}
+																					</span>
+																					{entry.live && (
+																						<span className='w-1.5 h-1.5 rounded-full bg-green-500 inline-block' />
+																					)}
+																				</div>
+																			),
+																		)}
+																	</div>
+																)}
+														</ItemContent>
+
+														{/* Actions — stop propagation so clicks don't toggle expand */}
+														<div
+															className='flex items-center gap-1 ml-auto shrink-0'
+															onClick={(e) =>
+																e.stopPropagation()
+															}>
+															{canVote && (
+																<Button
+																	size='sm'
+																	variant={
+																		myVote ===
+																		m.id
+																			? 'default'
+																			: 'outline'
+																	}
+																	onClick={() =>
+																		handleCastVote(
+																			m.id,
+																		)
+																	}>
+																	{myVote ===
+																	m.id
+																		? '✓ Voted'
+																		: 'Vote'}
+																</Button>
+															)}
+															{selfRole ===
+																'host' &&
+																m.id !==
+																	selfId &&
+																!isEliminated &&
+																!isVoting && (
+																	<Button
+																		size='sm'
+																		variant='destructive'
+																		onClick={() =>
+																			kickMember(
+																				m.id,
+																			)
+																		}>
+																		Kick
+																	</Button>
+																)}
+															{hasHistory && (
+																<ChevronDown
+																	size={14}
+																	className={`text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+																/>
+															)}
+														</div>
+													</Item>
+												</li>
+											);
+										})}
+									</ul>
+								</ScrollArea>
+
+								{/* Word submission footer — only shown during turn phase */}
+								{gameState && !isVoting && (
+									<div className='mt-3 shrink-0'>
+										<ButtonGroup className='w-full'>
+											<InputGroup>
+												<InputGroupInput
+													placeholder={
+														isSelfEliminated
+															? 'You are eliminated'
+															: isMyTurn
+																? 'Write your word...'
+																: 'Waiting for your turn...'
+													}
+													disabled={
+														!isMyTurn ||
+														isSelfEliminated ||
+														isSubmittingWord
+													}
+													maxLength={35}
+													value={wordInput}
+													onChange={(e) =>
+														setWordInput(
+															e.target.value,
+														)
+													}
+													onKeyDown={(e) => {
+														if (
+															e.key === 'Enter' &&
+															!e.shiftKey
+														) {
+															e.preventDefault();
+															handleSubmitWord();
+														}
+													}}
+												/>
+												<InputGroupAddon align='inline-end'>
+													<InputGroupText className='text-muted-foreground text-xs'>
+														{wordInput.length > 0 &&
+															`${wordInput.length}/35`}
+													</InputGroupText>
+												</InputGroupAddon>
+											</InputGroup>
+											<Button
+												disabled={
+													!isMyTurn ||
+													wordInput.trim().length ===
+														0 ||
+													isSelfEliminated ||
+													isSubmittingWord
+												}
+												onClick={handleSubmitWord}>
+												Submit
+											</Button>
+										</ButtonGroup>
+									</div>
+								)}
+
+								{/* Voting footer */}
+								{isVoting && (
+									<p className='text-sm text-muted-foreground text-center mt-3 shrink-0'>
+										{isSelfEliminated
+											? 'You are eliminated — spectating only.'
+											: myVote
+												? 'Vote cast! Waiting for others...'
+												: 'Vote for who you think is the imposter.'}
+									</p>
+								)}
 							</ResizablePanel>
 							<ResizableHandle
 								withHandle

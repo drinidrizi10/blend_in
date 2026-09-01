@@ -122,7 +122,7 @@ async function fetchWordFromAI(
 
             Strict Rules:
             The target word MUST be a single word or a hyphenated word. Absolutely no spaces.
-            The hint must be cryptic and abstract. Never describe shape, color, or exact function.
+            The hint must be cryptic and abstract. Never describe shape, color, or exact function. Make sure the hint is no longer than 2 words.
             Format output as a single minified JSON line with no newline characters.
 
             Output Format:
