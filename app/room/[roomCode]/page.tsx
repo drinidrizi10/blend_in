@@ -83,6 +83,7 @@ export default function RoomPage() {
 		roundHistory,
 		voteState,
 		eliminatedIds,
+		joinState,
 		sendChat,
 		startGame,
 		leaveRoom,
@@ -298,14 +299,6 @@ export default function RoomPage() {
 									</p>
 								</TooltipContent>
 							</Tooltip>
-							{/* <Badge
-								variant='outline'
-								className='text-sm md:text-md p-3.5 font-normal select-none'>
-								Status:{' '}
-								<span className='font-bold'>
-									{status === 'OPEN' ? 'Open' : 'Playing'}
-								</span>
-							</Badge> */}
 
 							{gameState?.role && (
 								<Badge
@@ -641,11 +634,11 @@ export default function RoomPage() {
 																	<Button
 																		size='sm'
 																		variant='destructive'
-																		onClick={() =>
+																		onClick={() => {
 																			kickMember(
 																				m.id,
-																			)
-																		}>
+																			);
+																		}}>
 																		Kick
 																	</Button>
 																)}

@@ -62,6 +62,13 @@ interface RoundWords {
 	words: RoundWordEntry[];
 }
 
+interface ChatMessage {
+	from: string;
+	fromId: string;
+	text: string;
+	timestamp: number;
+}
+
 // ---------- State ----------
 // Keyed by roomCode. Each room's members map is keyed by Clerk userId.
 
@@ -194,6 +201,9 @@ function removeFromRoom(userId: string, roomCode: string) {
 	const room = rooms.get(roomCode);
 	if (!room) return;
 
+	const user = room.get(userId);
+	if (!user) return;
+
 	room.delete(userId);
 	log('ROOM LEAVE', `User "${userId}" left room ${roomCode}`);
 
@@ -238,7 +248,7 @@ function removeFromRoom(userId: string, roomCode: string) {
 	}
 
 	if (roomStatus.get(roomCode) === 'PLAYING' && room.size <= 2) {
-		stopGame(roomCode, 'Not enough players');
+		stopGame(roomCode, 'Game has stopped! Not enough players!');
 	}
 }
 
@@ -254,7 +264,14 @@ function stopGame(roomCode: string, reason = 'Game stopped') {
 	if (timer) clearTimeout(timer);
 	roomVoteTimers.delete(roomCode);
 
-	log('GAME STOP', `Room ${roomCode} — ${reason}`);
+	log('GAME STOP', `Room ${roomCode}, ${reason}`);
+	io.to(roomCode).emit('broadcast', {
+		from: 'Broadcast',
+		fromId: crypto.randomUUID(),
+		text: reason,
+		timestamp: Date.now(),
+	});
+
 	io.to(roomCode).emit('game_over', { reason });
 	io.to(roomCode).emit('room_status', { status: 'OPEN' });
 }
@@ -290,11 +307,32 @@ function resolveVotes(roomCode: string) {
 				'VOTE RESULT',
 				`Room ${roomCode}: "${eliminatedThisRound}" eliminated`,
 			);
+
+			const user = room.get(eliminatedThisRound);
+			if (!user) return;
+			io.to(roomCode).emit('broadcast', {
+				from: 'Broadcast',
+				fromId: crypto.randomUUID(),
+				text: `${user.name} has been eliminated!`,
+				timestamp: Date.now(),
+			});
 		} else {
-			log('VOTE RESULT', `Room ${roomCode}: tie — no elimination`);
+			log('VOTE RESULT', `Room ${roomCode}: tie, no elimination`);
+			io.to(roomCode).emit('broadcast', {
+				from: 'Broadcast',
+				fromId: crypto.randomUUID(),
+				text: 'Tie, no elimination!',
+				timestamp: Date.now(),
+			});
 		}
 	} else {
-		log('VOTE RESULT', `Room ${roomCode}: no votes cast — continuing`);
+		log('VOTE RESULT', `Room ${roomCode}: no votes cast, continuing`);
+		io.to(roomCode).emit('broadcast', {
+			from: 'Broadcast',
+			fromId: crypto.randomUUID(),
+			text: 'No votes cast, continuing!',
+			timestamp: Date.now(),
+		});
 	}
 
 	io.to(roomCode).emit('vote_result', {
@@ -306,11 +344,14 @@ function resolveVotes(roomCode: string) {
 	const activeImposters = [...imposters].filter((id) => !eliminated.has(id));
 
 	if (activeImposters.length === 0) {
-		setTimeout(() => stopGame(roomCode, 'imposters_caught'), 3000);
+		setTimeout(
+			() => stopGame(roomCode, 'Imposters have been caught! Game over!'),
+			3000,
+		);
 		return;
 	}
 	if (activePlayers.length <= 2) {
-		setTimeout(() => stopGame(roomCode, 'imposters_win'), 3000);
+		setTimeout(() => stopGame(roomCode, 'Imposters win! Game over!'), 3000);
 		return;
 	}
 
@@ -334,7 +375,14 @@ function startNewRound(roomCode: string) {
 	const shuffled = [...activePlayers].sort(() => Math.random() - 0.5);
 	roomTurnOrder.set(roomCode, { order: shuffled, currentIndex: 0 });
 
-	log('NEW ROUND', `Room ${roomCode} — Round ${currentRound}`);
+	log('NEW ROUND', `Room ${roomCode}, Round ${currentRound}`);
+
+	io.to(roomCode).emit('broadcast', {
+		from: 'Broadcast',
+		fromId: crypto.randomUUID(),
+		text: `New round has started!`,
+		timestamp: Date.now(),
+	});
 
 	io.to(roomCode).emit('new_round', {
 		round: currentRound,
@@ -472,6 +520,13 @@ io.on('connection', (socket: AuthedSocket) => {
 			socket.currentRoom = roomCode;
 			socket.join(roomCode);
 
+			io.to(roomCode).emit('broadcast', {
+				from: 'Broadcast',
+				fromId: crypto.randomUUID(),
+				text: `${name} has joined the room!`,
+				timestamp: Date.now(),
+			});
+
 			callback({
 				success: true,
 				roomCode,
@@ -571,6 +626,13 @@ io.on('connection', (socket: AuthedSocket) => {
 			});
 		}
 
+		io.to(roomCode).emit('broadcast', {
+			from: 'Broadcast',
+			fromId: crypto.randomUUID(),
+			text: `Game has been started by host!`,
+			timestamp: Date.now(),
+		});
+
 		callback?.({ success: true });
 	});
 
@@ -580,9 +642,22 @@ io.on('connection', (socket: AuthedSocket) => {
 			callback?.({ success: false, error: 'Not in a room' });
 			return;
 		}
+
+		const user = rooms.get(roomCode)?.get(socket.userId!);
+		if (!user) return;
+
 		removeFromRoom(socket.userId!, roomCode);
+
 		socket.leave(roomCode);
 		socket.currentRoom = undefined;
+
+		io.to(roomCode).emit('broadcast', {
+			from: 'Broadcast',
+			fromId: crypto.randomUUID(),
+			text: `${user.name} has left the room!`,
+			timestamp: Date.now(),
+		});
+
 		callback?.({ success: true });
 	});
 
@@ -620,6 +695,14 @@ io.on('connection', (socket: AuthedSocket) => {
 				'KICK',
 				`"${requester.name}" kicked "${target.name}" from room ${roomCode}`,
 			);
+
+			io.to(roomCode).emit('broadcast', {
+				from: 'Broadcast',
+				fromId: crypto.randomUUID(),
+				text: `${target.name} has been kicked from the room!`,
+				timestamp: Date.now(),
+			});
+
 			target.socket.emit('kicked', {
 				message: 'You were kicked from the room',
 			});
@@ -670,7 +753,7 @@ io.on('connection', (socket: AuthedSocket) => {
 			return callback?.({ success: false, error: 'No game in progress' });
 		}
 
-		stopGame(roomCode, 'Host stopped the game');
+		stopGame(roomCode, 'Game has been stopped by host!');
 		callback?.({ success: true });
 	});
 
@@ -716,6 +799,14 @@ io.on('connection', (socket: AuthedSocket) => {
 				'SETTINGS UPDATE',
 				`Room ${roomCode}: ${JSON.stringify(updated)}`,
 			);
+
+			io.to(roomCode).emit('broadcast', {
+				from: 'Broadcast',
+				fromId: crypto.randomUUID(),
+				text: `Settings have been updated by host!`,
+				timestamp: Date.now(),
+			});
+
 			io.to(roomCode).emit('game_settings', { settings: updated });
 			callback?.({ success: true });
 		},
@@ -754,6 +845,13 @@ io.on('connection', (socket: AuthedSocket) => {
 					word,
 				});
 			}
+
+			io.to(roomCode).emit('broadcast', {
+				from: 'Broadcast',
+				fromId: crypto.randomUUID(),
+				text: `${member?.name} has submitted their word!`,
+				timestamp: Date.now(),
+			});
 
 			io.to(roomCode).emit('word_submitted', {
 				userId: socket.userId,

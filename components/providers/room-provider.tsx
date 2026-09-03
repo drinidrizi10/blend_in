@@ -173,6 +173,9 @@ export function RoomProvider({
 		function onChat(msg: ChatMessage) {
 			setMessages((prev) => [...prev, msg]);
 		}
+		function onBroadcast(msg: ChatMessage) {
+			setMessages((prev) => [...prev, msg]);
+		}
 		function onChatHistory({ messages }: { messages: ChatMessage[] }) {
 			setMessages(messages);
 		}
@@ -299,6 +302,7 @@ export function RoomProvider({
 		socket.on('game_settings', onGameSettings);
 		socket.on('room_status', onRoomStatus);
 		socket.on('chat', onChat);
+		socket.on('broadcast', onBroadcast);
 		socket.on('chat_history', onChatHistory);
 		socket.on('game_started', onGameStarted);
 		socket.on('turn_update', onTurnUpdate);
@@ -329,6 +333,7 @@ export function RoomProvider({
 			socket.off('game_settings', onGameSettings);
 			socket.off('room_status', onRoomStatus);
 			socket.off('chat', onChat);
+			socket.off('broadcast', onBroadcast);
 			socket.off('chat_history', onChatHistory);
 			socket.off('game_started', onGameStarted);
 			socket.off('turn_update', onTurnUpdate);
