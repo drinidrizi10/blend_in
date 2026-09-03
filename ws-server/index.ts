@@ -237,7 +237,7 @@ function removeFromRoom(userId: string, roomCode: string) {
 		}
 	}
 
-	if (roomStatus.get(roomCode) === 'PLAYING' && room.size <= 1) {
+	if (roomStatus.get(roomCode) === 'PLAYING' && room.size <= 2) {
 		stopGame(roomCode, 'Not enough players');
 	}
 }
@@ -505,10 +505,10 @@ io.on('connection', (socket: AuthedSocket) => {
 		if (!settings || !room) return;
 
 		const memberList = [...room.entries()];
-		if (memberList.length < 2) {
+		if (memberList.length < 3) {
 			callback?.({
 				success: false,
-				error: 'Need at least 2 players to start',
+				error: 'Need at least 3 players to start',
 			});
 			return;
 		}

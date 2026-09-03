@@ -159,12 +159,28 @@ export default function RoomPage() {
 	};
 
 	const handleStartGame = async () => {
+		if (!canStart) return;
+
 		setIsStarting(true);
 		const res = await startGame();
 		if (!res.success) {
 			toast.add({
 				type: 'error',
 				title: res.error ?? 'Failed to start game',
+			});
+		}
+		setIsStarting(false);
+	};
+
+	const handleEndGame = async () => {
+		if (status !== 'PLAYING') return;
+
+		setIsStarting(true);
+		const res = await stopGame();
+		if (!res.success) {
+			toast.add({
+				type: 'error',
+				title: res.error ?? 'Failed to end game',
 			});
 		}
 		setIsStarting(false);
@@ -247,7 +263,7 @@ export default function RoomPage() {
 		await castVote(targetUserId);
 	};
 
-	const canStart = members.length >= 2 && status === 'OPEN';
+	const canStart = members.length >= 3 && status === 'OPEN';
 
 	return (
 		<div className='flex w-full h-full items-center justify-center'>
@@ -807,42 +823,34 @@ export default function RoomPage() {
 						<ButtonGroup>
 							{selfRole === 'host' && (
 								<>
-									{/* Start Game */}
-									{canStart ? (
+									{/* Start/End Game */}
+									{status === 'PLAYING' ? (
 										<Button
 											size={
 												width < 640 ? 'sm' : 'default'
 											}
 											variant='default'
-											disabled={isStarting}
+											disabled={
+												isStarting ||
+												status !== 'PLAYING'
+											}
+											onClick={handleEndGame}>
+											{isStarting
+												? 'Ending...'
+												: 'End Game'}
+										</Button>
+									) : (
+										<Button
+											size={
+												width < 640 ? 'sm' : 'default'
+											}
+											variant='default'
+											disabled={isStarting || !canStart}
 											onClick={handleStartGame}>
 											{isStarting
 												? 'Starting...'
 												: 'Start Game'}
 										</Button>
-									) : (
-										<Tooltip>
-											<TooltipTrigger
-												render={
-													<Button
-														size={
-															width < 640
-																? 'sm'
-																: 'default'
-														}
-														variant='default'
-														disabled>
-														Start Game
-													</Button>
-												}
-											/>
-											<TooltipContent>
-												<p>
-													At least 2 players required
-													to start
-												</p>
-											</TooltipContent>
-										</Tooltip>
 									)}
 
 									{/* Room Settings */}

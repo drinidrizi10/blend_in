@@ -14,6 +14,94 @@ interface RevealData {
 
 const DISPLAY_DURATION = 4000;
 
+function InfoCard({
+	isImposter,
+	reveal,
+}: {
+	isImposter: boolean;
+	reveal: RevealData;
+}) {
+	return (
+		<motion.div
+			key='card'
+			className={`flex flex-col gap-4 items-center px-16 py-8 min-w-75 max-w-96 w-full h-auto min-h-32 bg-background z-99 fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-[1rem] pointer-events-none border ${isImposter ? 'border-destructive/60' : 'border-green-400/50'}`}
+			initial={{ opacity: 0, scale: 0.85, y: 20 }}
+			animate={{ opacity: 1, scale: 1, y: 0 }}
+			exit={{ opacity: 0, scale: 0.85, y: 20 }}
+			transition={{
+				type: 'spring',
+				stiffness: 300,
+				damping: 25,
+			}}>
+			<motion.div
+				className={`flex items-center justify-center w-20 h-20 rounded-full ${isImposter ? 'bg-destructive/15 text-destructive' : 'bg-green-400/15 text-green-400'}`}
+				initial={{ rotate: -10, scale: 0.8 }}
+				animate={{ rotate: 0, scale: 1 }}
+				transition={{
+					type: 'spring',
+					stiffness: 400,
+					damping: 20,
+					delay: 0.15,
+				}}>
+				{isImposter ? <HatGlasses size={40} /> : <User size={40} />}
+			</motion.div>
+
+			<motion.div
+				className='flex flex-col items-center text-center'
+				initial={{ opacity: 0, y: 10 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ delay: 0.2 }}>
+				<h2 className='text-md uppercase tracking-widest text-muted-foreground font-semibold'>
+					You are
+				</h2>
+				<h1
+					className={`text-3xl font-bold ${isImposter ? 'text-destructive' : 'text-green-400'}`}>
+					{isImposter ? 'Imposter' : 'Civilian'}
+				</h1>
+			</motion.div>
+
+			<motion.div
+				className='flex flex-col items-center text-center'
+				initial={{ opacity: 0, y: 10 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ delay: 0.3 }}>
+				<h2 className='text-md uppercase tracking-widest text-muted-foreground font-semibold'>
+					Category
+				</h2>
+				<h1 className={`text-2xl font-semibold`}>{reveal.category}</h1>
+			</motion.div>
+
+			<motion.div
+				className='flex flex-col items-center text-center'
+				initial={{ opacity: 0, y: 10 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ delay: 0.4 }}>
+				<h2 className='text-md uppercase tracking-widest text-muted-foreground font-semibold'>
+					{isImposter ? 'Your Hint' : 'The Word'}
+				</h2>
+				<h1 className={`text-2xl font-semibold`}>
+					{isImposter
+						? reveal.hint || 'No hint, good luck blending in.'
+						: reveal.word ||
+							'No word was found, try restarting the game!'}
+				</h1>
+			</motion.div>
+
+			<motion.div className='w-full h-0.5 bg-muted rounded-full overflow-hidden'>
+				<motion.div
+					className={`h-full ${isImposter ? 'bg-destructive' : 'bg-green-400'}`}
+					initial={{ width: '100%' }}
+					animate={{ width: '0%' }}
+					transition={{
+						duration: DISPLAY_DURATION / 1000,
+						ease: 'linear',
+					}}
+				/>
+			</motion.div>
+		</motion.div>
+	);
+}
+
 export function GameReveal() {
 	const { socket } = useSocket();
 	const [reveal, setReveal] = useState<RevealData | null>(null);
@@ -38,7 +126,6 @@ export function GameReveal() {
 		<AnimatePresence>
 			{reveal && (
 				<>
-					{/* Backdrop */}
 					<motion.div
 						key='backdrop'
 						className={`fixed inset-0 z-50 ${isImposter ? 'bg-destructive/20' : 'bg-green-400/10'}`}
@@ -49,115 +136,10 @@ export function GameReveal() {
 						transition={{ duration: 0.3 }}
 					/>
 
-					{/* Card */}
-					<motion.div
-						key='card'
-						className='fixed inset-0 z-50 flex items-center justify-center pointer-events-none'
-						initial={{ opacity: 0, scale: 0.85, y: 20 }}
-						animate={{ opacity: 1, scale: 1, y: 0 }}
-						exit={{ opacity: 0, scale: 0.85, y: 20 }}
-						transition={{
-							type: 'spring',
-							stiffness: 300,
-							damping: 25,
-						}}>
-						<div className='flex flex-col items-center gap-6 rounded-2xl border p-10 bg-background/90 max-w-sm w-full mx-4'>
-							{/* Icon */}
-							<motion.div
-								className={`flex items-center justify-center w-20 h-20 rounded-full ${isImposter ? 'bg-destructive/15 text-destructive' : 'bg-green-400/15 text-green-400'}`}
-								initial={{ rotate: -10, scale: 0.8 }}
-								animate={{ rotate: 0, scale: 1 }}
-								transition={{
-									type: 'spring',
-									stiffness: 400,
-									damping: 20,
-									delay: 0.15,
-								}}>
-								{isImposter ? (
-									<HatGlasses size={40} />
-								) : (
-									<User size={40} />
-								)}
-							</motion.div>
-
-							{/* Role */}
-							<motion.div
-								className='flex flex-col items-center gap-1 text-center'
-								initial={{ opacity: 0, y: 10 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ delay: 0.2 }}>
-								<p className='text-sm uppercase tracking-widest text-muted-foreground'>
-									You are
-								</p>
-								<h1
-									className={`text-4xl font-bold ${isImposter ? 'text-destructive' : 'text-green-400'}`}>
-									{isImposter ? 'The Imposter' : 'A Player'}
-								</h1>
-							</motion.div>
-
-							<div className='w-full h-px bg-border' />
-
-							{/* Category */}
-							<motion.div
-								className='flex flex-col items-center gap-1 text-center'
-								initial={{ opacity: 0, y: 10 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ delay: 0.3 }}>
-								<p className='text-xs uppercase tracking-widest text-muted-foreground'>
-									Category
-								</p>
-								<p className='text-lg font-semibold'>
-									{reveal.category}
-								</p>
-							</motion.div>
-
-							{/* Word or Hint */}
-							<motion.div
-								className='flex flex-col items-center gap-1 text-center'
-								initial={{ opacity: 0, y: 10 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ delay: 0.4 }}>
-								{isImposter ? (
-									reveal.hint ? (
-										<>
-											<p className='text-xs uppercase tracking-widest text-muted-foreground'>
-												Your Hint
-											</p>
-											<p className='text-lg font-semibold text-destructive'>
-												{reveal.hint}
-											</p>
-										</>
-									) : (
-										<p className='text-sm text-muted-foreground'>
-											No hint — good luck blending in.
-										</p>
-									)
-								) : (
-									<>
-										<p className='text-xs uppercase tracking-widest text-muted-foreground'>
-											The Word
-										</p>
-										<p className='text-2xl font-bold text-green-400'>
-											{reveal.word}
-										</p>
-									</>
-								)}
-							</motion.div>
-
-							{/* Progress bar */}
-							<motion.div className='w-full h-0.5 bg-muted rounded-full overflow-hidden'>
-								<motion.div
-									className={`h-full ${isImposter ? 'bg-destructive' : 'bg-green-400'}`}
-									initial={{ width: '100%' }}
-									animate={{ width: '0%' }}
-									transition={{
-										duration: DISPLAY_DURATION / 1000,
-										ease: 'linear',
-									}}
-								/>
-							</motion.div>
-						</div>
-					</motion.div>
+					<InfoCard
+						isImposter={isImposter}
+						reveal={reveal}
+					/>
 				</>
 			)}
 		</AnimatePresence>
