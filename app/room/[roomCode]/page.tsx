@@ -271,7 +271,7 @@ export default function RoomPage() {
 			<div className='flex w-full h-full py-3 px-3 md:w-3/4 md:px-0'>
 				<Card className='w-full h-full py-0 flex flex-col gap-3 overflow-hidden'>
 					<CardHeader className='bg-accent py-1 md:py-3 px-1 md:px-3'>
-						<CardTitle className='flex items-center justify-between md:justify-start gap-2'>
+						<CardTitle className='flex items-center justify-between md:justify-start gap-2 flex-wrap'>
 							<Tooltip>
 								<TooltipTrigger
 									render={
@@ -335,14 +335,14 @@ export default function RoomPage() {
 								</Badge>
 							) : null}
 
-							{gameState?.hint &&
-							gameState?.role === 'imposter' ? (
+							{gameState?.role === 'imposter' ? (
 								<Badge
 									variant='outline'
 									className='text-sm md:text-md p-3.5 font-normal select-none'>
 									Hint:{' '}
 									<span className='font-bold'>
-										{gameState?.hint}
+										{gameState?.hint ??
+											'No hint, good luck!'}
 									</span>
 								</Badge>
 							) : null}
@@ -858,7 +858,10 @@ export default function RoomPage() {
 															? 'sm'
 															: 'default'
 													}
-													variant='outline'>
+													variant='outline'
+													disabled={
+														status === 'PLAYING'
+													}>
 													Room Settings
 												</Button>
 											}

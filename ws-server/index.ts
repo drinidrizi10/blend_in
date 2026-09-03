@@ -25,6 +25,11 @@ interface AuthedSocket extends Socket {
 
 type Role = 'host' | 'member';
 type RoomStatus = 'OPEN' | 'PLAYING';
+type GameOutcome =
+	| 'players_win'
+	| 'imposters_win'
+	| 'insufficient_players'
+	| 'stopped';
 
 interface RoomMember {
 	socket: AuthedSocket;
@@ -69,6 +74,12 @@ interface ChatMessage {
 	timestamp: number;
 }
 
+interface PickedWordData {
+	word: string;
+	hint: string;
+	category: string;
+}
+
 // ---------- State ----------
 // Keyed by roomCode. Each room's members map is keyed by Clerk userId.
 
@@ -83,6 +94,7 @@ const roomEliminated = new Map<string, Set<string>>();
 const roomRound = new Map<string, number>();
 const roomImposters = new Map<string, Set<string>>();
 const roomVoteTimers = new Map<string, NodeJS.Timeout>();
+const roomWordData = new Map<string, PickedWordData>();
 
 const VOTE_DURATION = 30000;
 
@@ -195,6 +207,7 @@ function clearRoomState(roomCode: string) {
 	const timer = roomVoteTimers.get(roomCode);
 	if (timer) clearTimeout(timer);
 	roomVoteTimers.delete(roomCode);
+	roomWordData.delete(roomCode);
 }
 
 function removeFromRoom(userId: string, roomCode: string) {
@@ -248,11 +261,43 @@ function removeFromRoom(userId: string, roomCode: string) {
 	}
 
 	if (roomStatus.get(roomCode) === 'PLAYING' && room.size <= 2) {
-		stopGame(roomCode, 'Game has stopped! Not enough players!');
+		stopGame(
+			roomCode,
+			'Game has stopped! Not enough players!',
+			'insufficient_players',
+		);
 	}
 }
 
-function stopGame(roomCode: string, reason = 'Game stopped') {
+function stopGame(
+	roomCode: string,
+	reason = 'Game stopped',
+	outcome: GameOutcome = 'stopped',
+) {
+	const room = rooms.get(roomCode);
+	const imposters = roomImposters.get(roomCode) ?? new Set<string>();
+	const wordData = roomWordData.get(roomCode);
+	const allWords = roomWords.get(roomCode) ?? [];
+	const eliminated = roomEliminated.get(roomCode) ?? new Set<string>();
+
+	const imposterReveal = room
+		? [...imposters].map((impUserId) => {
+				const member = room.get(impUserId);
+				const wordsByRound = allWords.map((r) => ({
+					round: r.round,
+					word:
+						r.words.find((w) => w.userId === impUserId)?.word ??
+						null,
+				}));
+				return {
+					userId: impUserId,
+					name: member?.name ?? 'Unknown',
+					wasEliminated: eliminated.has(impUserId),
+					wordsByRound,
+				};
+			})
+		: [];
+
 	roomStatus.set(roomCode, 'OPEN');
 	roomTurnOrder.delete(roomCode);
 	roomWords.delete(roomCode);
@@ -260,11 +305,12 @@ function stopGame(roomCode: string, reason = 'Game stopped') {
 	roomEliminated.delete(roomCode);
 	roomRound.delete(roomCode);
 	roomImposters.delete(roomCode);
+	roomWordData.delete(roomCode);
 	const timer = roomVoteTimers.get(roomCode);
 	if (timer) clearTimeout(timer);
 	roomVoteTimers.delete(roomCode);
 
-	log('GAME STOP', `Room ${roomCode}, ${reason}`);
+	log('GAME STOP', `Room ${roomCode}, ${reason}, outcome: ${outcome}`);
 	io.to(roomCode).emit('broadcast', {
 		from: 'Broadcast',
 		fromId: crypto.randomUUID(),
@@ -272,7 +318,14 @@ function stopGame(roomCode: string, reason = 'Game stopped') {
 		timestamp: Date.now(),
 	});
 
-	io.to(roomCode).emit('game_over', { reason });
+	io.to(roomCode).emit('game_over', {
+		reason,
+		outcome,
+		category: wordData?.category ?? null,
+		word: wordData?.word ?? null,
+		hint: wordData?.hint ?? null,
+		imposters: imposterReveal,
+	});
 	io.to(roomCode).emit('room_status', { status: 'OPEN' });
 }
 
@@ -345,17 +398,30 @@ function resolveVotes(roomCode: string) {
 
 	if (activeImposters.length === 0) {
 		setTimeout(
-			() => stopGame(roomCode, 'Imposters have been caught! Game over!'),
-			3000,
+			() =>
+				stopGame(
+					roomCode,
+					'Imposters have been caught! Game over!',
+					'players_win',
+				),
+			1500,
 		);
 		return;
 	}
 	if (activePlayers.length <= 2) {
-		setTimeout(() => stopGame(roomCode, 'Imposters win! Game over!'), 3000);
+		setTimeout(
+			() =>
+				stopGame(
+					roomCode,
+					'Imposters win! Game over!',
+					'imposters_win',
+				),
+			1500,
+		);
 		return;
 	}
 
-	setTimeout(() => startNewRound(roomCode), 3000);
+	setTimeout(() => startNewRound(roomCode), 1500);
 }
 
 function startNewRound(roomCode: string) {
@@ -595,6 +661,12 @@ io.on('connection', (socket: AuthedSocket) => {
 		// Re-check room still exists after async gap
 		if (!rooms.has(roomCode)) return;
 
+		roomWordData.set(roomCode, {
+			word: picked.word,
+			hint: picked.hint,
+			category: picked.category,
+		});
+
 		log(
 			'GAME START',
 			`Room ${roomCode} | Imposters: ${imposterCount} | Category: "${picked.category}" | Word: "${picked.word}" | Hint: "${picked.hint}"`,
@@ -753,7 +825,7 @@ io.on('connection', (socket: AuthedSocket) => {
 			return callback?.({ success: false, error: 'No game in progress' });
 		}
 
-		stopGame(roomCode, 'Game has been stopped by host!');
+		stopGame(roomCode, 'Game has been stopped by host!', 'stopped');
 		callback?.({ success: true });
 	});
 

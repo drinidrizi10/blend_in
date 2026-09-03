@@ -1,6 +1,7 @@
 import { RoomProvider } from '@/components/providers/room-provider';
 import { RoomGate } from '@/components/auth/room-gate';
 import { GameReveal } from '@/components/ui/game-reveal';
+import { GameEndReveal } from '@/components/ui/game-end-reveal';
 
 export default async function RoomLayout({
 	children,
@@ -15,6 +16,7 @@ export default async function RoomLayout({
 			<RoomGate>
 				{children}
 				<GameReveal />
+				<GameEndReveal />
 			</RoomGate>
 		</RoomProvider>
 	);
