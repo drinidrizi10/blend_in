@@ -1,16 +1,14 @@
 {
     "name": "blend_in",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "private": true,
+    "workspaces": [
+        "ws-server"
+    ],
     "scripts": {
-        "dev": "concurrently --kill-others \"npm run client\" \"npm run server\" \"npm run ngrok\"",
-        "client": "next dev",
-        "server": "npm --prefix ./ws-server run dev",
-        "server:start": "npm --prefix ./ws-server run start",
-        "ngrok": "ngrok http --url=semester-maturity-unstamped.ngrok-free.dev 3000",
-        "build": "next build",
-        "start": "next start",
-        "lint": "eslint"
+        "dev": "concurrently -n NEXT,WS -c blue,green \"next dev\" \"npm run dev -w ws-server\"",
+        "build": "next build && npm run build -w ws-server",
+        "start": "next start"
     },
     "dependencies": {
         "@base-ui/react": "^1.6.0",
@@ -53,5 +51,9 @@
         "eslint-config-next": "16.2.10",
         "tailwindcss": "^4",
         "typescript": "^5"
+    },
+    "allowScripts": {
+        "sharp@0.34.5": true,
+        "unrs-resolver@1.12.2": true
     }
 }
