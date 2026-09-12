@@ -44,7 +44,7 @@ export default function Page() {
 				initial={{ opacity: 0, x: 25 }}
 				animate={{ opacity: 1, x: 0 }}
 				transition={{ type: 'spring', duration: 1.2 }}
-				className='text-7xl text-primary font-bold flex items-center gap-2'>
+				className='text-7xl text-primary font-bold flex items-center gap-2 select-none'>
 				Blend In{' '}
 				<motion.div
 					initial={{ rotate: 0, y: 200, opacity: 0 }}

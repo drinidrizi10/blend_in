@@ -8,6 +8,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import Header from '@/components/ui/parts/header';
 import { SocketProvider } from '@/components/providers/socket-provider';
 import { Toaster } from '@/components/ui/toast';
+import Link from 'next/link';
 
 const notoSansHeading = Noto_Sans({
 	subsets: ['latin'],
@@ -63,6 +64,34 @@ export default function RootLayout({
 								<Header />
 								<div className='bg-background w-full flex-1 min-h-0 flex flex-col items-center'>
 									{children}
+
+									<footer className='w-full bg-card border-t border-border py-4'>
+										<div className='w-full px-4 md:w-3/4 md:px-0 mx-auto flex flex-col md:flex-row items-center justify-between gap-2 text-sm text-muted-foreground'>
+											<p>
+												&copy;{' '}
+												{new Date().getFullYear()} Blend
+												In. All rights reserved.
+											</p>
+											<p>
+												Contact:{' '}
+												<span className='font-bold'>
+													drinidrizi9@gmail.com
+												</span>
+											</p>
+											<nav className='flex items-center gap-4'>
+												<Link
+													href='/privacy-policy'
+													className='hover:text-foreground transition-colors'>
+													Privacy Policy
+												</Link>
+												<Link
+													href='/terms-of-use'
+													className='hover:text-foreground transition-colors'>
+													Terms of Use
+												</Link>
+											</nav>
+										</div>
+									</footer>
 								</div>
 								<div
 									id='clerk-captcha'
